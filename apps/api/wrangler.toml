@@ -1,12 +1,13 @@
 name = "myma-api"
 main = "src/index.ts"
 compatibility_date = "2025-01-09"
+account_id = "84ec71abec453c29acea6e5d8474d48e"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "myma"
-database_id = "PLACEHOLDER"
+database_id = "79cfc1e9-9bd2-4f7b-b2e8-49ede2242e47"
 
 [[r2_buckets]]
 binding = "BACKUPS"
-bucket_name = "PLACEHOLDER"
+bucket_name = "backups"

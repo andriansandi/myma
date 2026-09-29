@@ -45,16 +45,23 @@ binding = "BACKUPS"
 bucket_name = "backups"
 ```
 
+**Apply migrasi ke D1** (sekali, atau tiap schema berubah):
+
+```bash
+cd apps/api
+wrangler d1 execute myma --remote --file=../../packages/db/src/migrations/0001_init.sql
+```
+
 **Secrets** (via `wrangler secret put`, atau dashboard → Worker → Settings → Secrets):
 
 ```
 AGENT_KEY_ID
 AGENT_KEY
-CLOUDFLARE_API_TOKEN
-CLOUDFLARE_ZONE_ID
+CLOUDFLARE_API_TOKEN   # hanya untuk provisioning DNS Moodle (isi nanti)
+CLOUDFLARE_ZONE_ID     # hanya untuk provisioning DNS Moodle (isi nanti)
 MYMA_DOMAIN
-ADMIN_AUTH_MODE     # "none" hanya untuk dev; "production" harus di-set non-none
-ENVIRONMENT         # "production"
+ADMIN_AUTH_MODE        # "none" hanya untuk dev; "production" harus non-none + IdP
+ENVIRONMENT            # "development" (dev) / "production" (real auth)
 ```
 
 ## 3. Routing `/api/*` ke Worker
