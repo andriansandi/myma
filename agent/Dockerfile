@@ -14,7 +14,7 @@
 # --------------------------------------------------------------------------- #
 # Stage 1 — build environment
 # --------------------------------------------------------------------------- #
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 # Enable pnpm via corepack and install workspace deps from lockfile.
@@ -35,7 +35,7 @@ RUN pnpm --filter @myma/agent build
 # --------------------------------------------------------------------------- #
 # Stage 2 — runtime image
 # --------------------------------------------------------------------------- #
-FROM node:20-alpine
+FROM node:22-alpine
 
 # Create a non-root runtime user.
 RUN addgroup -S myma && adduser -S myma -G myma
