@@ -21,7 +21,7 @@ import {
 import { AgentService } from "./agent.js";
 import { CloudflareDnsProvider, type DnsProvider } from "./cloudflare.js";
 import { R2StorageService, type StorageService } from "./storage.js";
-import { DevAuth, type AuthService } from "./auth.js";
+import { SessionAuth, type AuthService } from "./auth.js";
 
 /**
  * Cloudflare Worker bindings and secrets for the control-plane API.
@@ -36,6 +36,7 @@ export interface Env {
   MYMA_DOMAIN: string;
   ADMIN_AUTH_MODE: string;
   ENVIRONMENT: string;
+  AUTH_SESSION_SECRET: string;
 }
 
 export interface Repos {
@@ -82,7 +83,7 @@ export function createDeps(env: Env, config?: ProvisioningConfig): Deps {
     agent: new AgentService(env),
     dns: new CloudflareDnsProvider(env),
     storage: new R2StorageService(env),
-    auth: new DevAuth(env),
+    auth: new SessionAuth({ users: repos.users, secret: env.AUTH_SESSION_SECRET }),
     provisioningConfig: config,
   };
 }

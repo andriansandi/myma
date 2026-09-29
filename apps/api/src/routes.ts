@@ -7,6 +7,8 @@ import type { Deps, Env } from "./env.js";
 import { createDeps } from "./env.js";
 import { toErrorResponse } from "./error.js";
 import type { AuthUser } from "./auth.js";
+import { SessionAuth } from "./auth.js";
+import { z } from "zod";
 import { StudentService } from "./services/student.js";
 import { NodeService } from "./services/node.js";
 import { InstanceService } from "./services/instance.js";
@@ -49,6 +51,28 @@ export function createApp(env: Env, deps?: Deps): Hono {
   app.get("/api/health", (c) => c.json({ status: "ok" }));
 
   const api = new Hono<{ Variables: { user: AuthUser } }>();
+
+  const loginSchema = z.object({
+    email: z.string().trim().email(),
+    password: z.string().min(8),
+  });
+
+  api.post("/auth/login", async (c) => {
+    const body = await c.req.json();
+    const parsed = loginSchema.safeParse(body);
+    if (!parsed.success) {
+      return toErrorResponse(
+        { code: "VALIDATION_ERROR", message: parsed.error.message, details: { issues: parsed.error.issues } },
+        c,
+      );
+    }
+
+    const auth = resolvedDeps.auth as SessionAuth;
+    const result = await auth.login(parsed.data.email, parsed.data.password);
+    if (result.ok) return c.json(result.value);
+    return toErrorResponse(result.error, c);
+  });
+
   api.use(requireAuth(resolvedDeps));
 
   api.post("/auth", async (c) => {

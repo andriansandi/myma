@@ -1,5 +1,7 @@
+import { Button } from "@myma/ui";
 import { type ReactNode } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
+import { getLoggedInUser, logout } from "../api/client.js";
 
 interface LayoutProps {
   children: ReactNode;
@@ -21,6 +23,14 @@ const navItems: NavItem[] = [
 ];
 
 export function Layout({ children }: LayoutProps) {
+  const navigate = useNavigate();
+  const user = getLoggedInUser();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login", { replace: true });
+  };
+
   return (
     <div className="flex min-h-screen">
       <aside className="hidden w-56 flex-col border-r border-slate-200 bg-white md:flex">
@@ -55,6 +65,17 @@ export function Layout({ children }: LayoutProps) {
           <div>
             <h1 className="text-base font-semibold text-slate-900">MyMA</h1>
             <p className="text-xs text-slate-500">My Moodle Manager</p>
+          </div>
+
+          <div className="flex items-center gap-4">
+            {user && (
+              <span className="hidden text-sm text-slate-600 sm:inline">
+                {user.email}
+              </span>
+            )}
+            <Button size="sm" variant="secondary" onClick={handleLogout}>
+              Log out
+            </Button>
           </div>
         </header>
 

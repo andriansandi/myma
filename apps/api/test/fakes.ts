@@ -40,6 +40,7 @@ import type {
   UpdateInstanceInput,
   UpdateNodeInput,
   UserRepository,
+  UserWithPassword,
 } from "@myma/db";
 import type { DnsProvider } from "../src/cloudflare.js";
 import type { StorageService, StorageUpload } from "../src/storage.js";
@@ -368,10 +369,43 @@ export class FakeActivityLogRepository implements ActivityLogRepository {
 
 export class FakeUserRepository implements UserRepository {
   private users: User[] = [];
+  private passwordHashes = new Map<string, string>();
+
+  async createWithPassword(
+    input: CreateUserInput & { password_hash: string | null },
+  ): Promise<Result<User>> {
+    const existing = this.users.find((u) => u.email === input.email);
+    if (existing) {
+      return err("CONFLICT", "A user with this email already exists");
+    }
+    const user: User = { id: newId(), ...input, created_at: nowIso(), updated_at: nowIso() };
+    this.users.push(user);
+    if (input.password_hash) {
+      this.passwordHashes.set(user.id, input.password_hash);
+    }
+    return ok(user);
+  }
 
   async getByExternalId(externalId: string): Promise<Result<User | null>> {
     const user = this.users.find((u) => u.external_id === externalId);
     return ok(user ?? null);
+  }
+
+  async getByEmail(email: string): Promise<Result<User | null>> {
+    const user = this.users.find((u) => u.email === email);
+    return ok(user ?? null);
+  }
+
+  async getByEmailWithPassword(email: string): Promise<Result<UserWithPassword | null>> {
+    const user = this.users.find((u) => u.email === email);
+    if (!user) return ok(null);
+    return ok({ user, password_hash: this.passwordHashes.get(user.id) ?? null });
+  }
+
+  async getById(id: string): Promise<Result<User>> {
+    const user = this.users.find((u) => u.id === id);
+    if (!user) return err("NOT_FOUND", `User ${id} not found`);
+    return ok(user);
   }
 
   async upsert(input: CreateUserInput): Promise<Result<User>> {
@@ -572,6 +606,7 @@ export function createFakeDeps(options: FakeDepsOptions = {}): Deps {
     MYMA_DOMAIN: "myma.id",
     ADMIN_AUTH_MODE: options.authMode ?? "none",
     ENVIRONMENT: options.environment ?? "development",
+    AUTH_SESSION_SECRET: "test-session-secret",
   };
 
   return {

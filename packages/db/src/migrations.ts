@@ -115,6 +115,7 @@ CREATE INDEX IF NOT EXISTS idx_instance_resources_lookup
 
 export const migrations: Migration[] = [
   { name: "0001_init", sql: initSql },
+  { name: "0002_add_password_hash", sql: "ALTER TABLE users ADD COLUMN password_hash TEXT;" },
 ];
 
 export async function runMigrations(db: D1Database): Promise<void> {

@@ -1,6 +1,6 @@
 import { ok, err, type Result, type User, type UserRole } from "@myma/types";
 import type { D1Database } from "./types.js";
-import type { UserRepository, CreateUserInput } from "../repositories.js";
+import type { UserRepository, CreateUserInput, UserWithPassword } from "../repositories.js";
 import { newId, nowIso } from "../utils.js";
 
 interface UserRow {
@@ -10,6 +10,7 @@ interface UserRow {
   auth_provider: string;
   external_id: string | null;
   role: UserRole;
+  password_hash: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -36,6 +37,23 @@ export class D1UserRepository implements UserRepository {
       .bind(externalId)
       .first<UserRow>();
     return ok(row ? rowToUser(row) : null);
+  }
+
+  async getByEmail(email: string): Promise<Result<User | null>> {
+    const row = await this.db
+      .prepare("SELECT * FROM users WHERE email = ? LIMIT 1")
+      .bind(email)
+      .first<UserRow>();
+    return ok(row ? rowToUser(row) : null);
+  }
+
+  async getByEmailWithPassword(email: string): Promise<Result<UserWithPassword | null>> {
+    const row = await this.db
+      .prepare("SELECT * FROM users WHERE email = ? LIMIT 1")
+      .bind(email)
+      .first<UserRow>();
+    if (!row) return ok(null);
+    return ok({ user: rowToUser(row), password_hash: row.password_hash ?? null });
   }
 
   async upsert(input: CreateUserInput): Promise<Result<User>> {
@@ -83,7 +101,7 @@ export class D1UserRepository implements UserRepository {
     }
   }
 
-  private async getById(id: string): Promise<Result<User>> {
+  async getById(id: string): Promise<Result<User>> {
     const row = await this.db.prepare("SELECT * FROM users WHERE id = ?").bind(id).first<UserRow>();
     if (!row) {
       return err("NOT_FOUND", `User ${id} not found`);

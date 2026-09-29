@@ -173,8 +173,17 @@ export interface ActivityLogRepository {
   list(filter?: ActivityListFilter): Promise<Result<Page<ActivityLogDto>>>;
 }
 
+/** A user row plus its (secret) password hash, for authentication only. */
+export interface UserWithPassword {
+  user: User;
+  password_hash: string | null;
+}
+
 export interface UserRepository {
   getByExternalId(externalId: string): Promise<Result<User | null>>;
+  getByEmail(email: string): Promise<Result<User | null>>;
+  getByEmailWithPassword(email: string): Promise<Result<UserWithPassword | null>>;
+  getById(id: string): Promise<Result<User>>;
   upsert(input: CreateUserInput): Promise<Result<User>>;
 }
 

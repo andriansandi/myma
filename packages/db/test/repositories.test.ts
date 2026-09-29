@@ -497,13 +497,16 @@ describe("runMigrations", () => {
     const db = new FakeD1();
     db.queueExec({ count: 0, duration: 0 }); // create _migrations
     db.queueAll([]);
-    db.queueExec({ count: 0, duration: 0 }); // 0001_init schema
-    db.queueRun({ success: true }); // insert migration record
+    // one exec (schema) + one run (record) per pending migration
+    for (const _migration of migrations) {
+      db.queueExec({ count: 0, duration: 0 });
+      db.queueRun({ success: true });
+    }
 
     await runMigrations(db as D1Database);
 
-    expect(db.execCalls).toHaveLength(2);
+    expect(db.execCalls).toHaveLength(1 + migrations.length);
     expect(db.execCalls[0]?.sql).toContain("_migrations");
-    expect(migrations.map((m) => m.name)).toEqual(["0001_init"]);
+    expect(migrations.map((m) => m.name)).toEqual(["0001_init", "0002_add_password_hash"]);
   });
 });

@@ -1,6 +1,24 @@
 import { describe, it, expect } from "vitest";
+import { hashPassword } from "../src/auth/password.js";
+import { SessionAuth } from "../src/auth.js";
 import { createApp } from "../src/routes.js";
-import { createFakeDeps } from "./fakes.js";
+import { createFakeDeps, FakeUserRepository } from "./fakes.js";
+
+async function createSessionDeps() {
+  const deps = createFakeDeps({ authMode: "strict" });
+  const users = deps.repos.users as unknown as FakeUserRepository;
+  const passwordHash = await hashPassword("password123");
+  await users.createWithPassword({
+    email: "admin@myma.local",
+    name: "Admin",
+    auth_provider: "none",
+    external_id: null,
+    role: "admin",
+    password_hash: passwordHash,
+  });
+  deps.auth = new SessionAuth({ users, secret: deps.env.AUTH_SESSION_SECRET });
+  return deps;
+}
 
 async function setupNodeAndStudent(deps: ReturnType<typeof createFakeDeps>) {
   const student = await deps.repos.students.create({ name: "Sandi", email: "sandi@example.com" });
@@ -125,5 +143,48 @@ describe("API routes", () => {
     const body = (await res.json()) as { status: string; hostname: string };
     expect(body.status).toBe("ACTIVE");
     expect(body.hostname).toBe("sandi.myma.id");
+  });
+
+  it("POST /api/auth/login returns a token and user on valid credentials", async () => {
+    const deps = await createSessionDeps();
+    const app = createApp(deps.env, deps);
+
+    const res = await app.request("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "admin@myma.local", password: "password123" }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { token: string; user: { email: string; role: string } };
+    expect(body.token).toBeDefined();
+    expect(body.user.email).toBe("admin@myma.local");
+    expect(body.user.role).toBe("admin");
+  });
+
+  it("POST /api/auth/login returns 401 on bad credentials", async () => {
+    const deps = await createSessionDeps();
+    const app = createApp(deps.env, deps);
+
+    const res = await app.request("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "admin@myma.local", password: "wrong-password" }),
+    });
+
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("UNAUTHORIZED");
+    expect(body.error.message).toBe("Invalid email or password");
+  });
+
+  it("protected routes reject session auth without a Bearer token", async () => {
+    const deps = await createSessionDeps();
+    const app = createApp(deps.env, deps);
+
+    const res = await app.request("/api/students");
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: { message: string } };
+    expect(body.error.message).toBe("Authentication required");
   });
 });

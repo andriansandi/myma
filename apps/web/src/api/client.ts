@@ -17,13 +17,77 @@ const USE_MOCK = import.meta.env.VITE_USE_MOCK !== "false";
 const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
 const MOCK_LATENCY_MS = 360;
 
+const TOKEN_KEY = "myma:token";
+const USER_KEY = "myma:user";
+
+export interface LoginUser {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: LoginUser;
+}
+
 function getAuthHeader(): Record<string, string> {
-  // Placeholder: will be replaced once server-side auth is wired.
   const token =
     typeof localStorage !== "undefined"
-      ? localStorage.getItem("myma:token") ?? undefined
+      ? localStorage.getItem(TOKEN_KEY) ?? undefined
       : undefined;
   return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export function isAuthenticated(): boolean {
+  if (typeof localStorage === "undefined") return false;
+  return localStorage.getItem(TOKEN_KEY) !== null;
+}
+
+export function getLoggedInUser(): LoginUser | null {
+  if (typeof localStorage === "undefined") return null;
+  const raw = localStorage.getItem(USER_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as LoginUser;
+  } catch {
+    return null;
+  }
+}
+
+export function logout(): void {
+  if (typeof localStorage === "undefined") return;
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+}
+
+export function login(email: string, password: string): Promise<LoginResponse> {
+  if (USE_MOCK) {
+    const response: LoginResponse = {
+      token: "mock-token",
+      user: {
+        id: "u0000000-0000-0000-0000-000000000000",
+        email,
+        name: "Admin User",
+        role: "admin",
+      },
+    };
+    return mockDelay(response).then((value) => {
+      localStorage.setItem(TOKEN_KEY, value.token);
+      localStorage.setItem(USER_KEY, JSON.stringify(value.user));
+      return value;
+    });
+  }
+
+  return apiFetch<LoginResponse>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  }).then((value) => {
+    localStorage.setItem(TOKEN_KEY, value.token);
+    localStorage.setItem(USER_KEY, JSON.stringify(value.user));
+    return value;
+  });
 }
 
 export class ApiError extends Error {
@@ -70,6 +134,16 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     if (isErrorEnvelope(body)) {
+      if (
+        body.error.code === "UNAUTHORIZED" &&
+        path !== "/auth/login" &&
+        typeof window !== "undefined"
+      ) {
+        logout();
+        if (window.location.pathname !== "/login") {
+          window.location.href = "/login";
+        }
+      }
       throw new ApiError(
         body.error.code,
         body.error.message,
