@@ -1,0 +1,47 @@
+# Traefik DYNAMIC configuration for a MyMA VPS node.
+# Per-instance routers and services are created automatically by the Docker
+# provider from container labels (Decision D1). This file only supplies shared
+# middlewares and the optional Traefik dashboard router.
+
+http:
+  middlewares:
+    # Security headers applied to all MyMA-facing routers.
+    security-headers:
+      headers:
+        frameDeny: true
+        contentTypeNosniff: true
+        browserXssFilter: true
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        forceSTSHeader: true
+
+    # Basic rate limit. Per-instance routers can reference this as
+    # rate-limit@file in their Traefik labels.
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+
+    # HTTPS redirect helper. The static config already redirects at the entry
+    # point; this middleware can be used for special routers if needed.
+    https-only:
+      redirectScheme:
+        scheme: https
+        permanent: true
+
+  routers:
+    # Optional Traefik dashboard. It requires DNS for traefik.${MYMA_NODE_FQDN}
+    # and the MYMA_NODE_FQDN env var to be set in the Traefik container.
+    dashboard:
+      rule: "Host(`traefik.${MYMA_NODE_FQDN}`)"
+      service: api@internal
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: le
+      middlewares:
+        - rate-limit@file
+        - security-headers@file
+
+# No static services are declared here; services come from Docker labels.
+tls: {}

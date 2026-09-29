@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+.wrangler/
+.turbo/
+coverage/
+
+# Environment / secrets — NEVER commit
+.env
+.env.*
+!.env.example
+*.local
+
+# Secrets of any kind
+*.pem
+*.key
+*.crt
+secrets/
+.agent-state/
+
+# Local databases
+*.sqlite
+*.sqlite3
+*.db
+wrangler-local/
+.d1/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Moodle / runtime artifacts (never commit a Moodle checkout)
+/opt/
+moodledata/
+moodle-src/

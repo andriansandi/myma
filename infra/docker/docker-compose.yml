@@ -1,0 +1,154 @@
+# MyMA node bootstrap stack — run once per VPS.
+# Provides the shared infrastructure consumed by every per-instance Compose
+# project created by the MyMA agent:
+#   * MariaDB (one container, one engine; per-instance DB + user isolation).
+#   * Redis (shared session/cache store).
+#   * Traefik (reverse proxy + automatic HTTPS; discovers routes from Docker labels).
+#   * myma-agent (builds from the repo root; reachable only through Traefik).
+#
+# Usage:
+#   cp .env.example .env           # fill in real values
+#   docker compose up -d
+
+name: myma-infra
+
+services:
+  mariadb:
+    image: mariadb:11.4
+    container_name: myma-mariadb
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      MARIADB_ROOT_PASSWORD: "${MARIADB_ROOT_PASSWORD:?MARIADB_ROOT_PASSWORD is required}"
+      # Force UTF8MB4 for Moodle compatibility.
+      MARIADB_CHARACTER_SET_SERVER: utf8mb4
+      MARIADB_COLLATION_SERVER: utf8mb4_unicode_ci
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    networks:
+      - myma-infra
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "healthcheck.sh",
+          "--su-mysql",
+          "--connect",
+          "--innodb_initialized",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    container_name: myma-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - myma-infra
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  traefik:
+    image: traefik:v3.1
+    container_name: myma-traefik
+    restart: unless-stopped
+    command:
+      - --configFile=/etc/traefik/traefik.yml
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Read-only Docker socket; Traefik only needs to inspect containers/labels.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Static + dynamic configuration loaded from the repo/infra copy on the node.
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./dynamic.yml:/etc/traefik/dynamic/dynamic.yml:ro
+      # Let's Encrypt certificate storage.
+      - letsencrypt:/letsencrypt
+    networks:
+      - myma-infra
+    env_file:
+      - .env
+    healthcheck:
+      # The Traefik binary has a built-in healthcheck command; no shell/wget is
+      # required (the official Traefik image is from scratch).
+      test: ["CMD", "traefik", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  myma-agent:
+    build:
+      context: ../..
+      dockerfile: agent/Dockerfile
+    container_name: myma-agent
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # HMAC auth credentials shared with the Cloudflare Worker.
+      AGENT_KEY_ID: "${AGENT_KEY_ID:?AGENT_KEY_ID is required}"
+      AGENT_KEY: "${AGENT_KEY:?AGENT_KEY is required}"
+      # Agent HTTP port (internal to the infra network; exposed by Traefik).
+      MYMA_AGENT_PORT: "3000"
+      # Per-instance data / rendered compose files.
+      MYMA_INSTANCES_DIR: /opt/myma/instances
+      # Canonical compose template path inside the container.
+      MYMA_COMPOSE_TEMPLATE: /opt/myma/infra/moodle/compose.template.yml
+      # Shared node services.
+      MARIADB_HOST: mariadb
+      MARIADB_ROOT_PASSWORD: "${MARIADB_ROOT_PASSWORD}"
+      REDIS_HOST: redis
+      # Docker socket is NOT exposed on TCP. Agent interacts through the local
+      # Unix socket owned by the host's myma group.
+      DOCKER_HOST: unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Instance data, Moodle code checkouts, and rendered compose files.
+      - /opt/myma/instances:/opt/myma/instances
+      # Infra files (compose template, traefik configs) are synced by bootstrap-node.sh.
+      - /opt/myma/infra:/opt/myma/infra:ro
+      # Small persistent state for the agent (replay nonces, etc.).
+      - agent-state:/app/.agent-state
+    networks:
+      - myma-infra
+    # No published host port. The agent is exposed only through Traefik TLS.
+    expose:
+      - "3000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.agent.rule=Host(`agent.${MYMA_NODE_FQDN}`)"
+      - "traefik.http.routers.agent.entrypoints=websecure"
+      - "traefik.http.routers.agent.tls.certresolver=le"
+      - "traefik.http.routers.agent.middlewares=security-headers@file,rate-limit@file"
+      - "traefik.http.services.agent.loadbalancer.server.port=3000"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  myma-infra:
+    name: myma-infra
+    driver: bridge
+
+volumes:
+  mariadb-data:
+    driver: local
+  redis-data:
+    driver: local
+  letsencrypt:
+    driver: local
+  agent-state:
+    driver: local

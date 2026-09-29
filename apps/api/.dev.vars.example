@@ -1,0 +1,8 @@
+# Copy to .dev.vars and fill in real values. Never commit real values.
+AGENT_KEY_ID=
+AGENT_SIGNING_KEY=
+CLOUDFLARE_API_TOKEN=
+CLOUDFLARE_ZONE_ID=
+MYMA_DOMAIN=
+ADMIN_AUTH_MODE=none
+ENVIRONMENT=development

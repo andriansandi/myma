@@ -1,0 +1,100 @@
+# Per-instance Docker Compose template for a MyMA Moodle instance.
+# The MyMA agent renders this template and writes the result to
+# /opt/myma/instances/{{PROJECT}}/compose.yml.
+#
+# --------------------------------------------------------------------------- #
+# RENDERED PLACEHOLDERS (must match the agent's toTemplateVars() output):
+#   {{INSTANCE_ID}}      — UUIDv4 of the instance (used for naming only).
+#   {{HOSTNAME}}         — public FQDN served by Traefik, e.g. "student.myma.id".
+#   {{PROJECT}}          — Docker Compose project slug, e.g. "student-a".
+#   (Moodle version is NOT a template token — it selects the checkout branch,
+#    not the image. The runtime image is version-agnostic.)
+#   {{MOODLE_CODE_PATH}} — absolute host path where Moodle source is checked out.
+#   {{DB_HOST}}          — shared MariaDB hostname (typically "mariadb" on myma-infra).
+#   {{DB_PORT}}          — shared MariaDB port (typically "3306").
+#   {{DB_NAME}}          — dedicated database name for this instance.
+#   {{DB_USER}}          — dedicated database user for this instance.
+#   {{DB_PASS}}          — dedicated database password for this instance.
+#   {{REDIS_HOST}}       — shared Redis hostname (typically "redis" on myma-infra).
+#   {{REDIS_PORT}}       — shared Redis port (typically "6379").
+#   {{CPU_LIMIT}}        — Docker CPU limit, e.g. "0.50" or "1.0".
+#   {{MEM_LIMIT}}        — Docker memory limit, e.g. "512M".
+#
+# STATIC PARTS (do not change between instances):
+#   * network myma-infra as an external network (created by bootstrap-node.sh).
+#   * the internal default network for this compose project.
+#   * image / container naming convention and volume mount paths.
+#   * Traefik labels, HTTPS-only entrypoint, shared middlewares.
+# --------------------------------------------------------------------------- #
+
+name: "{{PROJECT}}"
+
+services:
+  moodle:
+    # The runtime image is Moodle-version-agnostic: it ships FrankenPHP + the
+    # PHP extensions Moodle needs. The Moodle version is realized by the source
+    # checkout at MOODLE_CODE_PATH (see install-moodle.sh). Built once by
+    # bootstrap-node.sh as `myma/moodle-frankenphp:latest`.
+    image: "myma/moodle-frankenphp:latest"
+    container_name: "moodle-{{PROJECT}}"
+    restart: unless-stopped
+
+    # All runtime environment (DB credentials, admin account, paths) comes from
+    # the rendered .env file. Secrets MUST NOT appear in this compose file.
+    env_file: [".env"]
+
+    volumes:
+      # Moodle source is NOT in the image. It is checked out by the agent and
+      # bind-mounted here so container upgrades never touch user data.
+      - type: bind
+        source: "{{MOODLE_CODE_PATH}}"
+        target: /var/www/moodle
+        bind:
+          create_host_path: true
+
+      # Dedicated moodledata volume per instance (filesystem isolation).
+      - type: volume
+        source: "moodledata-{{PROJECT}}"
+        target: /var/www/moodledata
+
+    networks:
+      # myma-infra lets Traefik route to this container and gives access to the
+      # shared MariaDB / Redis / agent.
+      - myma-infra
+      # default is an internal project-local network.
+      - default
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.{{PROJECT}}.rule=Host(`{{HOSTNAME}}`)"
+      - "traefik.http.routers.{{PROJECT}}.entrypoints=websecure"
+      - "traefik.http.routers.{{PROJECT}}.tls.certresolver=le"
+      - "traefik.http.routers.{{PROJECT}}.middlewares=rate-limit@file,security-headers@file"
+      - "traefik.http.services.{{PROJECT}}.loadbalancer.server.port=80"
+
+    deploy:
+      resources:
+        limits:
+          cpus: "{{CPU_LIMIT}}"
+          memory: "{{MEM_LIMIT}}"
+
+    # Duplicate of deploy.resources.limits.memory for broader tooling support.
+    mem_limit: "{{MEM_LIMIT}}"
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'curl --silent --fail http://localhost:80/login/index.php || test -f /var/www/moodle/config.php'
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  # Created once per VPS by infra/docker/docker-compose.yml.
+  myma-infra:
+    external: true
+
+volumes:
+  moodledata-{{PROJECT}}:
+    driver: local

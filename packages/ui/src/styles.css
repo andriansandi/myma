@@ -1,0 +1,16 @@
+/*
+ * Shared Tailwind base for @myma/ui.
+ * Imported by the consuming app so component utility classes are scanned.
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --myma-accent: 37 99 235; /* blue-600 */
+    --myma-danger: 220 38 38; /* red-600 */
+    --myma-warning: 217 119 6; /* amber-600 */
+    --myma-success: 22 163 74; /* green-600 */
+  }
+}
