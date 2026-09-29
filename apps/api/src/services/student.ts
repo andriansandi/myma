@@ -1,6 +1,6 @@
 import { createStudentSchema } from "@myma/validation";
-import type { Result, Student, StudentDto } from "@myma/types";
-import { err } from "@myma/types";
+import type { Page, Result, Student, StudentDto } from "@myma/types";
+import { err, ok } from "@myma/types";
 import type { Deps } from "../env.js";
 
 export class StudentService {
@@ -14,8 +14,16 @@ export class StudentService {
     return this.deps.repos.students.create(parsed.data);
   }
 
-  list(): Promise<Result<StudentDto[]>> {
-    return this.deps.repos.students.list();
+  async list(): Promise<Result<Page<StudentDto>>> {
+    const result = await this.deps.repos.students.list();
+    if (!result.ok) return result;
+    const items = result.value;
+    return ok({
+      items,
+      total: items.length,
+      offset: 0,
+      limit: items.length,
+    });
   }
 
   getById(id: string): Promise<Result<Student>> {

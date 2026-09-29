@@ -1,13 +1,13 @@
 import { registerNodeSchema } from "@myma/validation";
-import type { NodeStatus, Result, VpsNode } from "@myma/types";
-import { err } from "@myma/types";
+import type { NodeDto, NodeStatus, Page, Result, VpsNode } from "@myma/types";
+import { err, ok } from "@myma/types";
 import type { Deps } from "../env.js";
 import { nowIso } from "../utils.js";
 
 export class NodeService {
   constructor(private readonly deps: Deps) {}
 
-  async create(raw: unknown): Promise<Result<VpsNode>> {
+  async create(raw: unknown): Promise<Result<NodeDto>> {
     const parsed = registerNodeSchema.safeParse(raw);
     if (!parsed.success) {
       return err("VALIDATION_ERROR", parsed.error.message, { issues: parsed.error.issues });
@@ -41,11 +41,21 @@ export class NodeService {
     }
 
     await this.logNodeEvent(node, health.ok ? "success" : "error", health.ok ? undefined : health.error.message);
-    return this.deps.repos.nodes.getById(node.id);
+    const latest = await this.deps.repos.nodes.getById(node.id);
+    if (!latest.ok) return latest;
+    return ok(toNodeDto(latest.value));
   }
 
-  list(): Promise<Result<VpsNode[]>> {
-    return this.deps.repos.nodes.list();
+  async list(): Promise<Result<Page<NodeDto>>> {
+    const result = await this.deps.repos.nodes.list();
+    if (!result.ok) return result;
+    const items = result.value.map(toNodeDto);
+    return ok({
+      items,
+      total: items.length,
+      offset: 0,
+      limit: items.length,
+    });
   }
 
   getById(id: string): Promise<Result<VpsNode>> {
@@ -82,4 +92,10 @@ export class NodeService {
       timestamp: nowIso(),
     });
   }
+}
+
+function toNodeDto(node: VpsNode): NodeDto {
+  const { agent_key_id: _omit, ...dto } = node;
+  void _omit;
+  return dto;
 }

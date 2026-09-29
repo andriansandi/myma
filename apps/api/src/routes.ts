@@ -12,6 +12,7 @@ import { NodeService } from "./services/node.js";
 import { InstanceService } from "./services/instance.js";
 import { ProvisioningService } from "./services/provisioning.js";
 import { BackupService } from "./services/backup.js";
+import { DashboardService } from "./services/dashboard.js";
 import { ActivityService } from "./activity.js";
 
 export function createApp(env: Env, deps?: Deps): Hono {
@@ -140,6 +141,12 @@ export function createApp(env: Env, deps?: Deps): Hono {
       ...page.value,
     };
     const result = await new ActivityService(resolvedDeps.repos.activityLogs).list(filter);
+    if (result.ok) return c.json(result.value);
+    return toErrorResponse(result.error, c);
+  });
+
+  api.get("/stats", async (c) => {
+    const result = await new DashboardService(resolvedDeps).stats();
     if (result.ok) return c.json(result.value);
     return toErrorResponse(result.error, c);
   });

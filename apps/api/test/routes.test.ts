@@ -63,6 +63,42 @@ describe("API routes", () => {
     expect(body.email).toBe("sandi@example.com");
   });
 
+  it("lists students as a Page", async () => {
+    const deps = createFakeDeps({ authMode: "strict" });
+    await deps.repos.students.create({ name: "Sandi", email: "sandi@example.com" });
+    const app = createApp(deps.env, deps);
+    const res = await app.request("/api/students", {
+      headers: { Authorization: "Bearer dev" },
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { items: unknown[]; total: number; offset: number; limit: number };
+    expect(body.items).toHaveLength(1);
+    expect(body.total).toBe(1);
+    expect(body.offset).toBe(0);
+    expect(body.limit).toBe(1);
+  });
+
+  it("returns dashboard stats", async () => {
+    const deps = createFakeDeps({ authMode: "strict" });
+    const app = createApp(deps.env, deps);
+    const res = await app.request("/api/stats", {
+      headers: { Authorization: "Bearer dev" },
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      total_instances: number;
+      active: number;
+      total_students: number;
+      total_nodes: number;
+    };
+    expect(typeof body.total_instances).toBe("number");
+    expect(typeof body.active).toBe("number");
+    expect(typeof body.total_students).toBe("number");
+    expect(typeof body.total_nodes).toBe("number");
+  });
+
   it("creates and provisions an instance", async () => {
     const deps = createFakeDeps({
       authMode: "strict",

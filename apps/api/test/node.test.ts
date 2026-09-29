@@ -46,4 +46,48 @@ describe("NodeService", () => {
     if (!result.ok) return;
     expect(result.value.status).toBe("OFFLINE");
   });
+
+  it("create() response does not expose agent_key_id", async () => {
+    const deps = createFakeDeps();
+    const service = new NodeService(deps);
+
+    const result = await service.create({
+      name: "Node C",
+      hostname: "node-c.myma.id",
+      ip_address: "192.0.2.3",
+      agent_url: "https://agent.node-c.myma.id",
+      agent_key_id: "secret-key",
+      cpu_total: 2,
+      memory_total: 8_000_000_000,
+      storage_total: 50_000_000_000,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).not.toHaveProperty("agent_key_id");
+    expect(JSON.stringify(result.value)).not.toContain("secret-key");
+  });
+
+  it("list() returns a Page of NodeDto without agent_key_id", async () => {
+    const deps = createFakeDeps();
+    await deps.repos.nodes.create({
+      name: "Node D",
+      hostname: "node-d.myma.id",
+      ip_address: "192.0.2.4",
+      agent_url: "https://agent.node-d.myma.id",
+      agent_key_id: "secret-key",
+      cpu_total: 2,
+      memory_total: 8_000_000_000,
+      storage_total: 50_000_000_000,
+    });
+    const service = new NodeService(deps);
+
+    const result = await service.list();
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.items).toHaveLength(1);
+    expect(result.value.total).toBe(1);
+    expect(result.value.items[0]).not.toHaveProperty("agent_key_id");
+  });
 });
