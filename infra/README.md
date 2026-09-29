@@ -126,7 +126,7 @@ These are the exact token names in `infra/moodle/compose.template.yml`:
   - `install-moodle.sh` is invoked by the agent to run
     `php admin/cli/install.php` once, idempotently.
 
-## One-Shot Moodle Installation (`infra/scripts/install-moodle.sh`)
+## One-Shot Moodle Installation (`infra/moodle/scripts/install-moodle.sh`)
 
 The agent can run this inside the Moodle container:
 
