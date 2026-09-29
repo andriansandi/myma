@@ -19,7 +19,25 @@ export function createApp(env: Env, deps?: Deps): Hono {
   const app = new Hono();
   const resolvedDeps = deps ?? createDeps(env);
 
-  app.use("/api/*", cors({ origin: "*" }));
+  app.use(
+    "/api/*",
+    cors({
+      origin: (origin) => {
+        // Dashboard origin + Cloudflare preview/dev origins.
+        if (!origin) return "*";
+        if (
+          origin === "https://myma.kodr.site" ||
+          origin.endsWith(".pages.dev") ||
+          origin.endsWith(".workers.dev") ||
+          origin.startsWith("http://localhost:")
+        ) {
+          return origin;
+        }
+        return "https://myma.kodr.site";
+      },
+      allowHeaders: ["Content-Type", "Authorization"],
+    }),
+  );
 
   app.onError((error, c) => {
     return c.json(
