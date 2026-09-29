@@ -16,7 +16,8 @@
     "db:generate": "pnpm --filter @myma/db generate",
     "db:migrate:local": "pnpm --filter @myma/db migrate:local",
     "db:migrate:remote": "pnpm --filter @myma/db migrate:remote",
-    "agent:dev": "pnpm --filter @myma/agent dev"
+    "agent:dev": "pnpm --filter @myma/agent dev",
+    "deploy:api": "pnpm --filter @myma/api deploy"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
