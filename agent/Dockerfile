@@ -21,7 +21,7 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Copy monorepo files required to install workspace dependencies.
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc* ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc* tsconfig.base.json ./
 COPY packages/types ./packages/types
 COPY packages/validation ./packages/validation
 COPY agent ./agent
