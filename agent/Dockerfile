@@ -37,8 +37,13 @@ RUN pnpm --filter @myma/agent build
 # --------------------------------------------------------------------------- #
 FROM node:22-alpine
 
-# Create a non-root runtime user.
-RUN addgroup -S myma && adduser -S myma -G myma
+# Runtime CLI tools the agent shells out to: docker (via the mounted Unix
+# socket), mysql/mysqldump (shared MariaDB), git (Moodle checkout).
+RUN apk add --no-cache docker-cli mariadb-client git
+
+# Non-root user with uid/gid 1000 to match the host's `myma` group that owns
+# the Docker socket (see bootstrap-node.sh daemon.json).
+RUN addgroup -g 1000 myma && adduser -u 1000 -G myma -s /bin/sh -D myma
 
 WORKDIR /app
 
