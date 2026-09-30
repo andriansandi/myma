@@ -54,12 +54,12 @@ providers:
     directory: /etc/traefik/dynamic
     watch: true
 
-# Let's Encrypt certificate resolver. The email is supplied via the ACME_EMAIL
-# env var passed by docker-compose.yml.
+# Let's Encrypt certificate resolver. Email is a plain contact address (not a
+# secret); hardcoded because Traefik v3 does not interpolate ${VAR} here.
 certificatesResolvers:
   le:
     acme:
-      email: "${ACME_EMAIL}"
+      email: "andrian.sandi@gmail.com"
       storage: /letsencrypt/acme.json
       tlsChallenge: {}
 

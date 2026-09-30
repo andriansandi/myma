@@ -44,4 +44,3 @@ http:
         - security-headers@file
 
 # No static services are declared here; services come from Docker labels.
-tls: {}
