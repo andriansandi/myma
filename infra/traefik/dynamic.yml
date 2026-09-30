@@ -29,18 +29,4 @@ http:
         scheme: https
         permanent: true
 
-  routers:
-    # Optional Traefik dashboard. It requires DNS for traefik.${MYMA_NODE_FQDN}
-    # and the MYMA_NODE_FQDN env var to be set in the Traefik container.
-    dashboard:
-      rule: "Host(`traefik.${MYMA_NODE_FQDN}`)"
-      service: api@internal
-      entryPoints:
-        - websecure
-      tls:
-        certResolver: le
-      middlewares:
-        - rate-limit@file
-        - security-headers@file
-
-# No static services are declared here; services come from Docker labels.
+  # No static services are declared here; services come from Docker labels.
