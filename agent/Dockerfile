@@ -41,16 +41,13 @@ FROM node:22-alpine
 # socket), mysql/mysqldump (shared MariaDB), git (Moodle checkout).
 RUN apk add --no-cache docker-cli mariadb-client git
 
-# Non-root user with uid/gid 1000 to match the host's `myma` group that owns
-# the Docker socket (see bootstrap-node.sh daemon.json).
-RUN addgroup -g 1000 myma && adduser -u 1000 -G myma -s /bin/sh -D myma
-
 WORKDIR /app
 
-# The bundled application and nothing else.
-COPY --from=builder --chown=myma:myma /app/agent/dist/index.js ./dist/index.js
+# Run as the node image's built-in `node` user (uid 1000 / gid 1000), which
+# matches the host's `myma` group that owns the Docker socket and /opt/myma.
+COPY --from=builder --chown=node:node /app/agent/dist/index.js ./dist/index.js
 
-USER myma
+USER node
 
 EXPOSE 3000
 
