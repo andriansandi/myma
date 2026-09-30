@@ -78,6 +78,10 @@ services:
       - myma-infra
     env_file:
       - .env
+    environment:
+      # Docker 29 daemon requires API >= 1.40; Traefik v3.1 defaults to 1.24,
+      # which makes the docker provider fail to read container labels.
+      DOCKER_API_VERSION: "1.44"
     healthcheck:
       # The Traefik binary has a built-in healthcheck command; no shell/wget is
       # required (the official Traefik image is from scratch).
