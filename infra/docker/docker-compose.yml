@@ -128,6 +128,9 @@ services:
     # No published host port. The agent is exposed only through Traefik TLS.
     expose:
       - "3000"
+    # Grant access to the host's Docker socket (owned by the `docker` group).
+    group_add:
+      - "docker"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.agent.rule=Host(`agent.${MYMA_NODE_FQDN}`)"
