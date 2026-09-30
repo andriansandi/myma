@@ -233,7 +233,7 @@ export function createApp(deps: AgentDependencies): Hono {
   }
 
   app.get("/v1/health", async (c) => {
-    const dockerHealth = await deps.docker.status("myma-health-check");
+    const dockerHealth = await deps.docker.ping();
     const response: AgentHealthResponse = {
       status: "ok",
       version: VERSION,

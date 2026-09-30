@@ -24,6 +24,8 @@ export interface DockerEngine {
   start(project: string): Promise<Result<void>>;
   stop(project: string): Promise<Result<void>>;
   restart(project: string): Promise<Result<void>>;
+  /** Verify the Docker daemon is reachable (used by /v1/health). */
+  ping(): Promise<Result<void>>;
   status(project: string): Promise<Result<{ running: boolean; containers: ContainerState[] }>>;
   metrics(project: string): Promise<Result<{ cpu_usage: number; memory_usage: number }>>;
   exec(project: string, container: string, command: string[]): Promise<Result<void>>;
@@ -85,6 +87,10 @@ export class CliDockerEngine implements DockerEngine {
 
   async restart(project: string): Promise<Result<void>> {
     return voidFromResult(await runDocker([...this.composeArgs(project), "restart"]));
+  }
+
+  async ping(): Promise<Result<void>> {
+    return voidFromResult(await runDocker(["version", "--format", "{{.Server.Version}}"]));
   }
 
   async status(project: string): Promise<Result<{ running: boolean; containers: ContainerState[] }>> {
@@ -270,6 +276,10 @@ export class FakeDockerEngine implements DockerEngine {
   async restart(project: string): Promise<Result<void>> {
     await this.stop(project);
     return this.start(project);
+  }
+
+  async ping(): Promise<Result<void>> {
+    return ok(undefined);
   }
 
   async status(project: string): Promise<Result<{ running: boolean; containers: ContainerState[] }>> {
