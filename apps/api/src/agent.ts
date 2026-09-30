@@ -30,7 +30,7 @@ export class AgentService {
   ) {}
 
   async healthCheck(node: VpsNode): Promise<Result<AgentHealthResponse>> {
-    const result = await this.signedFetch("GET", this.url(node, "/v1/health"));
+    const result = await this.signedFetch("GET", this.url(node, "/v1/health"), undefined, node.ip_address);
     if (!result.ok) return result;
     return this.cast<AgentHealthResponse>(result.value.data);
   }
@@ -43,6 +43,7 @@ export class AgentService {
       "POST",
       this.url(node, "/v1/instances"),
       request,
+      node.ip_address,
     );
     if (!result.ok) return result;
     return this.cast<AgentJob>(result.value.data);
@@ -52,6 +53,8 @@ export class AgentService {
     const result = await this.signedFetch(
       "GET",
       this.url(node, `/v1/instances/${encodeURIComponent(instanceId)}/status`),
+      undefined,
+      node.ip_address,
     );
     if (!result.ok) return result;
     return this.cast<AgentInstanceStatus>(result.value.data);
@@ -61,6 +64,8 @@ export class AgentService {
     const result = await this.signedFetch(
       "POST",
       this.url(node, `/v1/instances/${encodeURIComponent(instanceId)}/start`),
+      undefined,
+      node.ip_address,
     );
     if (!result.ok) return result;
     return this.cast<{ status: string }>(result.value.data);
@@ -70,6 +75,8 @@ export class AgentService {
     const result = await this.signedFetch(
       "POST",
       this.url(node, `/v1/instances/${encodeURIComponent(instanceId)}/stop`),
+      undefined,
+      node.ip_address,
     );
     if (!result.ok) return result;
     return this.cast<{ status: string }>(result.value.data);
@@ -82,6 +89,8 @@ export class AgentService {
     const result = await this.signedFetch(
       "POST",
       this.url(node, `/v1/instances/${encodeURIComponent(instanceId)}/restart`),
+      undefined,
+      node.ip_address,
     );
     if (!result.ok) return result;
     return this.cast<{ status: string }>(result.value.data);
@@ -96,6 +105,7 @@ export class AgentService {
       "POST",
       this.url(node, `/v1/instances/${encodeURIComponent(instanceId)}/reset`),
       request,
+      node.ip_address,
     );
     if (!result.ok) return result;
     return this.cast<{ job_id: string }>(result.value.data);
@@ -105,6 +115,8 @@ export class AgentService {
     const result = await this.signedFetch(
       "POST",
       this.url(node, `/v1/instances/${encodeURIComponent(instanceId)}/delete`),
+      undefined,
+      node.ip_address,
     );
     if (!result.ok) return result;
     return this.cast<{ job_id: string }>(result.value.data);
@@ -125,6 +137,7 @@ export class AgentService {
       "POST",
       this.url(node, `/v1/instances/${encodeURIComponent(instanceId)}/backup`),
       body,
+      node.ip_address,
     );
     if (!result.ok) return result;
     return this.cast<AgentBackupResponse>(result.value.data);
@@ -140,6 +153,7 @@ export class AgentService {
       "POST",
       this.url(node, `/v1/instances/${encodeURIComponent(instanceId)}/restore`),
       body,
+      node.ip_address,
     );
     if (!result.ok) return result;
     return this.cast<{ job_id: string }>(result.value.data);
@@ -149,6 +163,8 @@ export class AgentService {
     const result = await this.signedFetch(
       "GET",
       this.url(node, `/v1/instances/${encodeURIComponent(instanceId)}/metrics`),
+      undefined,
+      node.ip_address,
     );
     if (!result.ok) return result;
     return this.cast<AgentMetrics>(result.value.data);
@@ -163,6 +179,7 @@ export class AgentService {
     method: string,
     fullUrl: string,
     body?: unknown,
+    resolveIp?: string,
   ): Promise<Result<SignedFetchResult>> {
     const url = new URL(fullUrl);
     const timestamp = String(nowSeconds());
@@ -190,11 +207,16 @@ export class AgentService {
         headers["Content-Type"] = "application/json";
       }
 
-      const response = await fetch(fullUrl, {
+      const init: RequestInit & { cf?: { resolveOverride: string } } = {
         method,
         headers,
         body: bodyText || undefined,
-      });
+      };
+      if (resolveIp) {
+        init.cf = { resolveOverride: resolveIp };
+      }
+
+      const response = await fetch(fullUrl, init);
 
       const data = (await response.json()) as unknown;
       if (!response.ok) {
